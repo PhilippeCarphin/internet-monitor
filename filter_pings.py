@@ -1,55 +1,66 @@
 #!/usr/bin/env python3
 
+import sys
 import datetime
-import argparse
-from pprint import pprint
 
-def get_args():
-    p = argparse.ArgumentParser(description="Aggregate data from log file from pings.sh")
-    p.add_argument("--log-file", help="File with output from pings.sh")
+"""
+This is the cleanest one.
 
-    return p.parse_args()
+Code wise, the main thing is that we can simplify a lot by removing the checks
+for end of input since the input never ends unless we terminate the program.
+
+Since there is only one condition for breaking, this allows us to avoid the
+break that we had in read_outage() in version 2 and replace the single break
+with a return statement.
+"""
+
+def main():
+    for o in generate_outages():
+        if o is None:
+            return
+        d = o['duration']
+        print(f"Internet went out at {o['start']} for {d}")
+
+def generate_outages():
+    for line in sys.stdin:
+        if line is None:
+            return
+        current_time = get_time(line)
+        if "down" in line:
+            yield read_outage(sys.stdin, current_time)
+
+def read_outage(file_handle, start_time):
+    """
+    An outage is in progress, read until we encounter the end
+    of the file or until we encounter a line that says the
+    internet is working
+    """
+    for l in file_handle:
+        if l is None:
+            return
+        if "working" in l:
+            end_time = get_time(l)
+            return {
+                "start": start_time,
+                "end": end_time,
+                "duration" : end_time - start_time
+            }
 
 def get_time(log_line):
+    """
+    Lines are of the form
+        Internet working at 2022-10-27 22:08:33
+    or
+        Internet down at 2022-10-27 22:08:33
+    so words 3 and 4 make up the date.
+    """
     words = log_line.split()
     time_string = f"{words[3]} {words[4]}"
     dt = datetime.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
     return dt
 
-def main():
-    outages = []
-    args = get_args()
-    with open(args.log_file) as f:
-        outage_in_progress = False
-        while True:
-            l = f.readline().strip()
-            if not l:
-                if outage_in_progress:
-                    outage_end = datetime.datetime.now()
-                    outages.append({
-                        "start": outage_start,
-                        "end": outage_end,
-                        "duration": outage_end-outage_start
-                    })
-                break
-            current_time = get_time(l)
-            if "down" in l:
-                if not outage_in_progress:
-                    outage_start = current_time
-                    outage_in_progress = True
-            elif "working" in l:
-                if outage_in_progress:
-                    outage_end = current_time
-                    outage_in_progress = False
-                    outages.append({
-                        "start": outage_start,
-                        "end": outage_end,
-                        "duration": outage_end-outage_start
-                    })
 
-    # pprint(outages)
-    for o in outages:
-        d = o['duration']
-        print(f"Internet went out at \033[1;32m{o['start']}\033[0m for \033[1;31m{d}\033[0m")
-
-main()
+try:
+    main()
+except KeyboardInterrupt:
+    pass
