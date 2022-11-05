@@ -7,8 +7,8 @@
 # then the time between checks will be closer to
 # $((time_between_checks + ping_timeout))
 
-ping_timeout=5
-time_between_checks=30
+ping_timeout=7
+time_between_checks=25
 
 function internet-works(){
     timeout ${ping_timeout} ping -c 1 google.com &>/dev/null
