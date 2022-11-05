@@ -5,6 +5,8 @@ My internet is dropping for minutes at a time since around Wednesday October
 
 Since the ISP doesn't monitor this, I decided to do it myself
 
+Here are the [results](https://gist.github.com/PhilippeCarphin/000805315035cf4d9a5cfde3376bb972) as of 2022-11-05.
+
 ## Usage
 
 ### Simple
