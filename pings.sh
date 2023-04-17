@@ -10,15 +10,19 @@
 ping_timeout=7
 time_between_checks=25
 
+# Google IP to try if I suspect a DNS problem: 172.217.13.110
+
+set -o pipefail
 function internet-works(){
-    timeout ${ping_timeout} ping -c 1 google.com &>/dev/null
+    timeout ${ping_timeout} bash -c "ping -c 1 google.com | head -n 2 | tail -n 1 | awk '{print \$7}'"
 }
 
 function main(){
+    local result
     while true ; do
 
-        if internet-works ; then
-            echo "Internet working at $(date "+%Y-%m-%d %T")"
+        if result=$(internet-works) ; then
+            echo "Internet working at $(date "+%Y-%m-%d %T") (${result})"
         else
             echo "Internet down at $(date "+%Y-%m-%d %T")"
         fi
