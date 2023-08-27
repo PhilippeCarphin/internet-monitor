@@ -2,49 +2,18 @@
 
 import sys
 import datetime
+import time
+import re
+import argparse
 
-"""
-This is the cleanest one.
+def get_arguments():
 
-Code wise, the main thing is that we can simplify a lot by removing the checks
-for end of input since the input never ends unless we terminate the program.
+    p = argparse.ArgumentParser(description="Monitor my god damn internet connection because it seems that stupid Videotron is unable to do it themselves")
 
-Since there is only one condition for breaking, this allows us to avoid the
-break that we had in read_outage() in version 2 and replace the single break
-with a return statement.
-"""
+    p.add_argument("--show-uptimes", action='store_true')
+    p.add_argument("--alerts", action='store_true')
 
-def main():
-    for o in generate_outages():
-        if o is None:
-            return
-        d = o['duration']
-        print(f"Internet went out at {o['start']} for {d}")
-
-def generate_outages():
-    for line in sys.stdin:
-        if line is None:
-            return
-        current_time = get_time(line)
-        if "down" in line:
-            yield read_outage(sys.stdin, current_time)
-
-def read_outage(file_handle, start_time):
-    """
-    An outage is in progress, read until we encounter the end
-    of the file or until we encounter a line that says the
-    internet is working
-    """
-    for l in file_handle:
-        if l is None:
-            return
-        if "working" in l:
-            end_time = get_time(l)
-            return {
-                "start": start_time,
-                "end": end_time,
-                "duration" : end_time - start_time
-            }
+    return p.parse_args()
 
 def get_time(log_line):
     """
@@ -59,6 +28,103 @@ def get_time(log_line):
     dt = datetime.datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
     return dt
 
+
+def color_out_duration(d):
+    if d < datetime.timedelta(seconds=30):
+        color = bad_colors[5]
+    elif d < datetime.timedelta(minutes=2):
+        color = bad_colors[4]
+    elif d < datetime.timedelta(minutes=5):
+        color = bad_colors[3]
+    elif d < datetime.timedelta(minutes=20):
+        color = bad_colors[2]
+    elif d < datetime.timedelta(minutes=40):
+        color = bad_colors[1]
+    else:
+        color = bad_colors[0]
+    return f"{color}{d}\033[0m"
+
+def color_up_duration(d):
+    if d < datetime.timedelta(seconds=30):
+        color = bad_colors[4]
+    elif d < datetime.timedelta(minutes=1):
+        color = good_colors[0]
+    elif d < datetime.timedelta(minutes=5):
+        color = good_colors[1]
+    elif d < datetime.timedelta(minutes=10):
+        color = good_colors[2]
+    elif d < datetime.timedelta(minutes=40):
+        color = good_colors[3]
+    elif d < datetime.timedelta(minutes=120):
+        color = good_colors[4]
+    else:
+        color = good_colors[5]
+    return f"{color}{d}\033[0m"
+
+bad_colors = [
+        "\033[1;38;5;196m", # red
+        "\033[1;38;5;202m",
+        "\033[1;38;5;208m",
+        "\033[1;38;5;214m",
+        "\033[1;38;5;220m",
+        "\033[1;38;5;226m", # yellow
+        ]
+good_colors = [
+        "\033[1;38;5;226m", # yellow
+        "\033[1;38;5;190m",
+        "\033[1;38;5;154m",
+        "\033[1;38;5;118m",
+        "\033[1;38;5;82m",
+        "\033[1;38;5;46m", # Green
+]
+
+def main():
+
+    args = get_arguments()
+
+    state = "working"
+    start = sys.stdin.readline()
+    interval = {'start': get_time(start)}
+    for l in sys.stdin:
+        # So I can temporarily remove some lines in the test log
+        if l.strip().startswith('#'):
+            continue
+        ltime = get_time(l)
+        #
+        # Working to working
+        #
+        if state == "working" and "working" in l:
+            print(f"\033[K    \033[1;32mInternet has been working since {interval['start']} for {color_up_duration(ltime - interval['start'])}\033[0m\r", end='')
+        #
+        # Down to down
+        #
+        elif state == "down" and "down" in l:
+            print(f"\033[K    \033[1;31mInternet has been DOWN since {interval['start']} for {color_out_duration(ltime - interval['start'])}\033[0m\r", end='')
+        #
+        # Down to working
+        #
+        elif state == "down" and "working" in l:
+            if args.alerts:
+                print(f"\a", end='') # Ring bell for state change
+            print(f"\033[KInternet went \033[1;31mout\033[0m at \033[1;34m{interval['start']}\033[0m for {color_out_duration(ltime - interval['start'])}\033[0m")
+            interval = {'start': get_time(l)}
+            state = "working"
+            print(f"\033[K    \033[1;32mInternet just went up\033[0m\r", end='')
+        #
+        # Working to down
+        #
+        elif state == "working" and "down" in l:
+            if args.alerts:
+                print(f"\a", end='') # Ring bell for state change
+            if args.show_uptimes:
+                print(f"\033[K\033[1mInternet went \033[1;32mup\033[0m  at \033[1;34m{interval['start']}\033[0m for {color_up_duration(ltime - interval['start'])}\033[0m")
+            state = "down"
+            interval = {'start': get_time(l)}
+            print(f"\033[K    \033[1;31mInternet just went down\033[0m\r", end='')
+
+        # time.sleep(0.01)
+    print("")
+    return
 
 try:
     main()
