@@ -25,9 +25,10 @@ file or if you have to stop the filtering process.
 Down times are colored from yellow (short) to red (long) and uptimes are colored
 from yellow (short) to green (long).
 
-The alert (if using `--alert`) rings a bell in the shell which gives you a heads
+The alert (if using `--alerts`) rings a bell in the shell which gives you a heads
 up that the video you are watching will stop playing once you reach the end of
-the buffered part.
+the buffered part.  It works by printing the "bell" character which depends on
+your terminal emulator's configuration.
 
 ### Generating the excel sheet
 

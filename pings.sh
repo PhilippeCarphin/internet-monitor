@@ -14,7 +14,7 @@ time_between_checks=25
 
 set -o pipefail
 function internet-works(){
-    timeout ${1} bash -c "ping -c 1 google.com | head -n 2 | tail -n 1 | awk '{print \$7}'"
+    timeout ${1} bash -o pipefail -c "ping -c 1 google.com | head -n 2 | tail -n 1 | awk '{print \$7}'"
 }
 
 function main(){
